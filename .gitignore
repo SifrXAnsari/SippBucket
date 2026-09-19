@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+publish/
+src/sipengine/build/
+
+# SippBucket's own metadata, if anyone runs sip init inside this tree
+.sip/
+
+# Editor / OS
+.vs/
+.vscode/
+*.user
+Thumbs.db
+desktop.ini

@@ -1,0 +1,58 @@
+<Project>
+
+  <!--
+    Build standards for SippBucket. These live in the build file rather than on the
+    command line so they cannot be skipped locally. See ../BUILD-STANDARDS.md.
+
+    TargetFramework is deliberately NOT set here: SippBucket.Tray targets
+    net10.0-windows while everything else targets net10.0.
+  -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Warnings are errors. No exceptions list. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors></WarningsNotAsErrors>
+    <WarningLevel>9999</WarningLevel>
+
+    <!-- Analyzers on, code style enforced at build time. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Public API must be documented: the power-user help depends on it. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    The version resource, once, so every assembly and the executable agree, and so the MSI can
+    take its ProductVersion from the executable rather than from a second copy of the number.
+
+    An executable with no company, product or description is the "anonymous binary" half of
+    D-46, and it is what Task Manager, the file's Properties and an antivirus console show a
+    person deciding whether to trust it. FileDescription in the Win32 resource comes from the
+    assembly title, which the SDK defaults to the assembly name, so SippBucket.exe describes
+    itself as "SippBucket". Description lands in the resource's Comments field.
+
+    The SDK appends "+<commit>" to InformationalVersion when it can read the repository's
+    .git (SourceLink, on by default). Left on deliberately: the product version then says
+    which commit a machine is running, which is the question when two machines disagree.
+  -->
+  <PropertyGroup>
+    <Version>1.1.0</Version>
+    <FileVersion>$(Version).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <Company>Sifr X Ansari</Company>
+    <Product>SippBucket</Product>
+    <Description>SippBucket: peer-to-peer document sync between machines you own.</Description>
+    <Copyright>Copyright (c) 2026 Sifr X Ansari</Copyright>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+</Project>

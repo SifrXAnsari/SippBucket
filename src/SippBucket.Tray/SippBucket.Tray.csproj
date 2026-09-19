@@ -1,0 +1,91 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>SippBucket.Tray</RootNamespace>
+    <!--
+      One executable, named for the product rather than for the tray, because it is no
+      longer only the tray: with arguments it is the command line. See Program.cs.
+    -->
+    <AssemblyName>SippBucket</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!--
+    How SippBucket.exe is published, here rather than on anyone's command line, so that every
+    publish is the same one: the installer script's, the MSI's, CI's and a person's.
+
+    It used to live on Install.ps1's command line, with IncludeNativeLibrariesForSelfExtract
+    set to true (D-46). That made the single-file host unpack libsodium.dll into
+    %TEMP%\.net\SippBucket\<hash>\ on first start and load it from there: a freshly written
+    DLL, in a user-writable temp directory, loaded by an unsigned executable, which is the
+    behavioural shape antivirus heuristics look for (P-08). With it false, libsodium.dll is
+    published beside SippBucket.exe, installed beside it, and loaded from there: the
+    single-file host probes the application's own directory for native libraries it did not
+    bundle. Checked on the published exe by listing the running tray's loaded modules, not
+    assumed.
+
+    The Publish* forms are the SDK's own publish-only switches: PublishRuntimeIdentifier and
+    PublishSelfContained take effect only under `dotnet publish` (see
+    Microsoft.NET.RuntimeIdentifierInference.targets), so an ordinary build stays
+    framework-dependent and the test project can still reference this one. DebugType is set
+    the same way, so a Debug build keeps its symbols.
+
+    What lands in the publish directory is exactly what is installed: SippBucket.exe and
+    libsodium.dll. Symbols and XML documentation from the referenced projects are dropped
+    rather than published beside them, so "byte-identical to the publish output" can be
+    checked file for file (see install/msi and build.ps1).
+  -->
+  <PropertyGroup>
+    <PublishRuntimeIdentifier>win-x64</PublishRuntimeIdentifier>
+    <PublishSelfContained>true</PublishSelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <Target Name="SippBucketDropReferenceSymbols" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    A publish that is not that shape fails rather than succeeding differently. The settings
+    above are defaults, and a property passed on the command line overrides a default - which
+    is exactly how the first installer turned native self-extraction on. So `dotnet publish
+    -p:IncludeNativeLibrariesForSelfExtract=true` is refused here, and so is an msbuild
+    /t:Publish that never set the publish-only properties above.
+  -->
+  <Target Name="SippBucketRequirePublishShape" BeforeTargets="PrepareForPublish">
+    <Error Condition="'$(RuntimeIdentifier)' != 'win-x64'"
+           Text="SippBucket publishes for win-x64 only, and this publish is for '$(RuntimeIdentifier)'. Use `dotnet publish`, which applies PublishRuntimeIdentifier." />
+    <Error Condition="'$(SelfContained)' != 'true'"
+           Text="SippBucket publishes self-contained, so the target machine needs no .NET runtime installed. This publish is not. Use `dotnet publish`, which applies PublishSelfContained." />
+    <Error Condition="'$(PublishSingleFile)' != 'true'"
+           Text="SippBucket publishes as a single file. This publish is not." />
+    <Error Condition="'$(IncludeNativeLibrariesForSelfExtract)' == 'true' or '$(IncludeAllContentForSelfExtract)' == 'true'"
+           Text="SippBucket never self-extracts: an executable that writes a DLL into %TEMP% and loads it is the shape antivirus acts on (D-46, P-08). libsodium.dll ships beside SippBucket.exe instead." />
+    <Error Condition="'$(DebugType)' != 'none'"
+           Text="SippBucket publishes without symbols (DebugType=none). This publish has DebugType '$(DebugType)'." />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SippBucket.Core\SippBucket.Core.csproj" />
+    <ProjectReference Include="..\SippBucket.Cli\SippBucket.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SippBucket.Tray.Tests" />
+    <InternalsVisibleTo Include="SippBucket.MarkExport" />
+  </ItemGroup>
+
+</Project>

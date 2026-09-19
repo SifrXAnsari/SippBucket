@@ -1,0 +1,50 @@
+# clang-tidy configuration for sipengine.
+#
+# The families the project's native audit measured against seeded bugs (bugprone, cert,
+# clang-analyzer; ../../../BUILD-STANDARDS.md, "One compiler's warnings are a floor"), plus
+# misc, performance and portability. Every finding is an error. What is switched off below is
+# switched off for a stated reason, with what would remove the need, which meets this
+# project's rule that a suppression must say both.
+
+Checks: >
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  -bugprone-easily-swappable-parameters,
+  -misc-include-cleaner,
+  -misc-use-internal-linkage,
+  -performance-enum-size
+
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*sipengine.*'
+FormatStyle: none
+
+# ---------------------------------------------------------------------------------------------
+# WHY EACH IS OFF
+#
+# bugprone-easily-swappable-parameters
+#   The exported C ABI takes (pointer, length) pairs and a total length side by side, the
+#   shape every caller of a C buffer API expects, and the internal readers mirror it. The
+#   ABI cannot take a struct instead without giving up blittable parameters, which the
+#   interop rules in sipengine.h and ../sipnative/README.md require.
+#   What would remove this: an ABI of one struct per call, which those rules rule out.
+#
+# misc-include-cleaner
+#   It asks for headers the standard library already guarantees through the ones included,
+#   and its answer differs between MSVC's library and libstdc++, so it cannot pass under both.
+#   What would remove this: one standard library for every build.
+#
+# misc-use-internal-linkage
+#   Everything internal is already in an anonymous namespace. What is left with external
+#   linkage must keep it: the exports sipengine.h declares, the self-test's main, and the
+#   fuzzer's entry point, which libFuzzer finds by name.
+#   What would remove this: nothing; those three are external by definition.
+#
+# performance-enum-size
+#   It would shrink content::Type to one byte. Its values cross the ABI as uint32_t, are
+#   stored in quarantine records as numbers, and must keep their numbers for ever; one width
+#   on both sides of the boundary is what keeps that true.
+#   What would remove this: nothing; the width is the ABI's.

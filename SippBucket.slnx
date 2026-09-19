@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/sip/sip.csproj" />
+    <Project Path="src/SippBucket.Cli/SippBucket.Cli.csproj" />
+    <Project Path="src/SippBucket.Core/SippBucket.Core.csproj" />
+    <Project Path="src/SippBucket.Tray/SippBucket.Tray.csproj" />
+  </Folder>
+</Solution>

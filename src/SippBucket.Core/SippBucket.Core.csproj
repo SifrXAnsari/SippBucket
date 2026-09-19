@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SippBucket.Core</RootNamespace>
+    <AssemblyName>SippBucket.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      libsodium. Supplies Blake2b, XChaCha20-Poly1305, Ed25519 and X25519 through NSec, and
+      ristretto255 for CPace through Crypto/Ristretto255.cs, which calls the same native
+      library directly because NSec does not wrap that group.
+    -->
+    <PackageReference Include="NSec.Cryptography" Version="26.4.0" />
+
+    <!--
+      Direct Push's SSH transport (../../../docs/DIRECT-PUSH.md, "The SSH library"). The owner
+      approved it with conditions, and its source was read before it was added
+      (../../../docs/SSH-LIBRARY-REVIEW.md). The brackets pin exactly this version: an update is
+      a deliberate change that repeats the review, never a floating reference. Only the session
+      package: SippBucket owns its sockets, so the library's TCP package is not referenced.
+    -->
+    <PackageReference Include="Microsoft.DevTunnels.Ssh" Version="[3.12.42]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Internal seams the tests need and production code must not call:
+      - The CPace test vectors fix the secret scalars, and the only way to inject a scalar is
+        an internal seam: a public one would be a way to reuse a scalar in production. The
+        key-bearing pairing payload and SipRepository.Join are internal for D-49, and the
+        tests that build replicas without a network exchange reach them the same way.
+      - The Noise layer is internal: only SecureChannel is API. The tests reach it to
+        reproduce the published Noise test vectors, which needs fixed ephemeral keys.
+      - SyncEngine.BeforeApply: the D-44 and simultaneous-merge tests have to act between
+        the transfer and the apply, and nothing public reaches there.
+      - PairingServer's deadlines and connection counts (D-62): the tests shorten the
+        deadlines so a stalled connection can be watched being cut off in seconds rather
+        than minutes, and wait on the counts rather than on guessed delays.
+      - Direct Push: the limits on unauthenticated connections (HandshakeAdmission) and the
+        receive window (ReceiveWindow) are tested without sockets, since no well-behaved SSH
+        client can break a window; the ssh-ed25519 key blob codec is checked against
+        OpenSSH's own key; and the inbox's ledger compacts at a threshold a test can lower.
+    -->
+    <InternalsVisibleTo Include="SippBucket.Core.Tests" />
+  </ItemGroup>
+
+  <!--
+    SippBucket's native engine, sipengine.dll (../sipengine, C++20 behind a C ABI). Built here,
+    before this project compiles, whenever any of its sources or its build script is newer than
+    the DLL, and carried to the output of every project that references this one and to every
+    publish, as libsodium.dll is. The executable refuses to start without it (SipEngine.Problem).
+
+    The build script runs its self-test every time and fails the build if it fails. Its audit
+    (other compilers, clang-tidy, the sanitizers) is the root build.ps1's job, so an ordinary
+    build stays quick; -SkipAudit says so here rather than leaving it to a default.
+
+    Windows only: version 1 is Windows only, and the engine is built with MSVC. On another
+    system the target does nothing, and anything that calls the engine fails at the call.
+  -->
+  <PropertyGroup>
+    <SipEngineDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\sipengine'))\</SipEngineDirectory>
+    <SipEngineConfiguration Condition="'$(Configuration)' == 'Debug'">Debug</SipEngineConfiguration>
+    <SipEngineConfiguration Condition="'$(SipEngineConfiguration)' == ''">Release</SipEngineConfiguration>
+    <SipEngineOutput>$(SipEngineDirectory)build\$(SipEngineConfiguration)\</SipEngineOutput>
+    <SipEngineDll>$(SipEngineOutput)sipengine.dll</SipEngineDll>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SipEngineSource Include="$(SipEngineDirectory)*.cpp;$(SipEngineDirectory)*.hpp;$(SipEngineDirectory)*.h;$(SipEngineDirectory)*.ps1;$(SipEngineDirectory)*.psm1" />
+    <None Include="$(SipEngineDll)" Link="sipengine.dll" Visible="false"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="SippBucketBuildEngine"
+          BeforeTargets="BeforeBuild"
+          Inputs="@(SipEngineSource)"
+          Outputs="$(SipEngineDll)"
+          Condition="'$(OS)' == 'Windows_NT'">
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(SipEngineDirectory)build.ps1&quot; -Configuration $(SipEngineConfiguration) -OutDir &quot;$(SipEngineOutput.TrimEnd('\'))&quot; -SkipAudit" />
+  </Target>
+
+</Project>
