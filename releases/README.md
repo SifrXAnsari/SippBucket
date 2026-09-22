@@ -19,3 +19,6 @@ Verify a download against `SHA256SUMS.txt` in the same folder before running it.
 
 When a build here has passed the full build with its audits and a green suite, this file will
 say so for that build. Until then, treat everything in this folder as unproven.
+
+What changed between 1.1.0 and 1.2.0, and how far each part is proven: [COMPARISON.md](COMPARISON.md).
+
