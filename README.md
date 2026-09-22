@@ -1,3 +1,5 @@
+> **Warning:** the installers under `releases/` are NOT stable and NOT yet tested. Read [releases/README.md](releases/README.md) before downloading one.
+
 # SippBucket
 
 SippBucket is a peer-to-peer document aggregator and a self-hosted repository server of its
